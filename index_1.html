@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--
+  CYBERSECURITY 101 — "لا تكن الهدف القادم" — PHISHING AWARENESS DEMO
+  Deployable on GitHub Pages / any static host.
+  Backend: countapi.mileshilliard.com (no signup, no keys).
+  Dedup:   localStorage keeps each browser on ONE permanent number.
+
+  >>> BEFORE THE LECTURE: change COUNTER_KEY below to a long random string,
+      otherwise you share a counter with strangers using the same key.
+-->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>لا تكن الهدف القادم — Cybersecurity 101</title>
+<style>
+  :root {
+    --ink:#07070a; --bone:#ededed; --muted:#6b6b73;
+    --blood:#ff2b3e; --blood-deep:#c1121f; --cyan:#27d3e0; --cyan-deep:#0f8c97;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { min-height:100%; }
+  body {
+    background:radial-gradient(ellipse 80% 60% at 50% 30%, #14070a 0%, var(--ink) 62%);
+    color:var(--bone);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    position:relative; overflow-x:hidden; -webkit-font-smoothing:antialiased;
+    transition:background 1.2s ease;
+  }
+  body.caught { background:radial-gradient(ellipse 90% 70% at 50% 24%, #06181a 0%, var(--ink) 64%); }
+  body::before {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:3;
+    background-image:repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+    mix-blend-mode:multiply; opacity:.5;
+  }
+  body::after {
+    content:""; position:fixed; inset:-50%; pointer-events:none; z-index:2;
+    background:radial-gradient(circle at 50% 38%, transparent 28%, rgba(0,0,0,.85) 100%);
+  }
+  .stage { position:relative; z-index:4; text-align:center; padding:40px 24px 96px; width:100%; max-width:680px; }
+  .label {
+    font-size:clamp(13px,3vw,17px); letter-spacing:.55em; text-transform:uppercase;
+    color:var(--muted); font-weight:600; padding-left:.55em; margin-bottom:20px;
+    animation:flicker 4.5s infinite steps(1);
+  }
+  .label .you { color:var(--blood); }
+  .number {
+    font-family:"SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size:clamp(72px,24vw,200px); font-weight:700; line-height:.9; color:var(--bone);
+    text-shadow:0 0 36px rgba(255,43,62,.45), 0 0 4px rgba(255,43,62,.6); letter-spacing:-.02em;
+  }
+  .number .hash { color:var(--blood-deep); font-weight:400; }
+  .sub { margin-top:22px; font-size:clamp(12px,2.6vw,14px); color:var(--muted); letter-spacing:.04em; }
+  .sub b { color:var(--bone); font-weight:600; font-variant-numeric:tabular-nums; }
+  .loading { color:var(--muted); font-size:15px; letter-spacing:.3em; text-transform:uppercase; }
+  .err { color:var(--blood); font-size:14px; letter-spacing:.08em; }
+  .lesson { margin-top:40px; opacity:0; transform:translateY(20px); }
+  .lesson.show { animation:rise .9s cubic-bezier(.2,.8,.2,1) both; }
+  .divider { width:54px; height:2px; margin:0 auto 26px; background:linear-gradient(90deg, transparent, var(--cyan), transparent); }
+  .lesson .ar { direction:rtl; font-size:clamp(17px,4.4vw,23px); line-height:1.7; font-weight:600; color:var(--bone); margin-bottom:6px; }
+  .lesson .ar .hit { color:var(--cyan); }
+  .lesson .slogan { direction:rtl; font-size:clamp(22px,6vw,34px); font-weight:800; margin:18px 0 4px; color:#fff; text-shadow:0 0 26px rgba(39,211,224,.35); }
+  .lesson .en { font-size:clamp(12px,2.8vw,14.5px); color:var(--muted); line-height:1.65; max-width:430px; margin:14px auto 0; }
+  .lesson .en .hit { color:var(--cyan-deep); font-weight:600; }
+  .footer {
+    position:fixed; bottom:0; left:0; right:0; z-index:5; padding:12px 16px 14px;
+    text-align:center; direction:rtl; background:linear-gradient(0deg, rgba(0,0,0,.65), transparent);
+    font-size:11px; color:#5a5a63; letter-spacing:.02em; line-height:1.6;
+  }
+  .footer b { color:#8a8a93; font-weight:600; }
+  .hidden { display:none; }
+  .reveal { animation:rise .7s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes rise { from{opacity:0; transform:translateY(18px) scale(.97);} to{opacity:1; transform:none;} }
+  @keyframes flicker { 0%,100%,92%{opacity:1;} 93%{opacity:.4;} 94%{opacity:1;} 96%{opacity:.7;} 97%{opacity:1;} }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div id="loading" class="loading">claiming you&hellip;</div>
+    <div id="error" class="err hidden">the void is unreachable. refresh to try again.</div>
+
+    <div id="result" class="hidden">
+      <div class="label reveal">You are <span class="you">victim</span></div>
+      <div class="number reveal"><span class="hash">#</span><span id="num">0</span></div>
+      <div class="sub reveal"><b id="total">0</b> people clicked before they thought.</div>
+
+      <div id="lesson" class="lesson">
+        <div class="divider"></div>
+        <div class="ar">للتو ضغطتَ على رابط من رسالة <span class="hit">لا تعرف مصدرها</span>.</div>
+        <div class="ar">في هجوم حقيقي، هذه النقرة وحدها قد تكفي لسرقة بياناتك.</div>
+        <div class="slogan">لا تكن الهدف القادم.</div>
+        <div class="en">You just clicked an unknown link from a message. In a real attack
+          — phishing, a fake login, a drive-by — <span class="hit">that single click can be enough</span>.
+          Stop. Verify the sender. Don't be the next target.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div><b>Cybersecurity 101 — لا تكن الهدف القادم</b> · م. أسامة عبدو · 13/06/2026</div>
+    <div>نقابة المهندسين الأردنيين — شعبة الهندسة الكهربائية</div>
+  </div>
+
+  <script>
+    // ====== CHANGE THIS to your own long, unique string before the lecture ======
+    const COUNTER_KEY = "CHANGE_ME_c101_jea_2026_8f3a2c91";
+    // ===========================================================================
+    const API = "https://countapi.mileshilliard.com/api/v1";
+
+    async function init() {
+      let mine = localStorage.getItem("c101_my_number");
+      if (mine === null) {
+        try {
+          const res = await fetch(`${API}/hit/${COUNTER_KEY}`);
+          const data = await res.json();
+          mine = parseInt(data.value);
+          localStorage.setItem("c101_my_number", mine);
+        } catch (e) { return showError(); }
+        return reveal(mine, mine);
+      }
+      mine = parseInt(mine);
+      let total = mine;
+      try {
+        const res = await fetch(`${API}/get/${COUNTER_KEY}`);
+        const data = await res.json();
+        if (data && data.value) total = Math.max(parseInt(data.value), mine);
+      } catch (e) {}
+      reveal(mine, total);
+    }
+
+    function reveal(mine, total) {
+      document.getElementById("loading").classList.add("hidden");
+      document.getElementById("result").classList.remove("hidden");
+      document.getElementById("total").textContent = total.toLocaleString();
+      countUp(document.getElementById("num"), mine, 1100, () => {
+        setTimeout(() => {
+          document.body.classList.add("caught");
+          document.getElementById("lesson").classList.add("show");
+        }, 650);
+      });
+    }
+
+    function showError() {
+      document.getElementById("loading").classList.add("hidden");
+      document.getElementById("error").classList.remove("hidden");
+    }
+
+    function countUp(el, target, duration, done) {
+      const start = performance.now();
+      function frame(now) {
+        const p = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(target * eased).toLocaleString();
+        if (p < 1) requestAnimationFrame(frame);
+        else { el.textContent = target.toLocaleString(); if (done) done(); }
+      }
+      requestAnimationFrame(frame);
+    }
+
+    init();
+  </script>
+</body>
+</html>
